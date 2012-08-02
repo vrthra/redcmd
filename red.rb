@@ -120,18 +120,29 @@ module Textgoeshere
           status = case status
                    when /Accepted/; 'accepted'.yellow
                    when /Unreviewed/; 'unreviewed'.yellow
-                   when /Review/; 'onreview'.green
-                   when /Needs/; 'needinfo'.yellow
+                   when /Review/; 'on review'.green
+                   when /Needs/; 'need info'.yellow
                    when /Insufficient/; 'insufficient'.red
                    when /Merged/; 'merged'.blue
                    when /Duplicate/; 'duplicate'.blue
                    when /Rejected/; 'rejected'.blue
+                   when /Re-opened/; 'reopened'.red
                    when /Closed/; 'closed'.blue
                    else status
                    end
           assignedto = issue.xpath('td[@class="assigned_to"]/a').inner_html
           a = assignedto.split(' ')[0]
-          puts "%8s | %6s | %25s | %s" % [a.nil? ? '-' : a.downcase, id, status, subject] unless subject.nil? || subject.empty?
+          if a.nil?
+            a = '-' 
+          else
+            a.downcase!
+          end
+          if a == @opts[:username].downcase
+            a = a.light_blue 
+          else
+            a = a.white 
+          end
+          puts "%20s | %6s | %26s | %s" % [a, id, status, subject] unless subject.nil? || subject.empty?
         end
       end
     end

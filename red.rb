@@ -45,11 +45,13 @@ begin
   require 'trollop'
   require 'mechanize'
   require 'yaml'
+  require 'colorize'
 rescue LoadError
   require 'rubygems'
   require 'trollop'
   require 'mechanize'
   require 'yaml'
+  require 'colorize'
 end
 
 module Textgoeshere
@@ -109,7 +111,27 @@ module Textgoeshere
           issue = issues[i]
           break unless issue
           subject = issue.xpath('td[@class="subject"]/a').inner_html
-          puts subject
+          id      = issue.xpath('td[@class="subject"]/a').map{|n| n['href']}.first.to_s.split('/')[2]
+          status = issue.xpath('td[@class="status"]').inner_text
+          tracker = issue.xpath('td[@class="tracker"]').inner_text  #Feature|Bug
+          project = issue.xpath('td[@class="project"]').inner_html 
+          priority = issue.xpath('td[@class="priority"]').inner_text 
+          fixedversion = issue.xpath('td[@class="fixed_version"]').inner_text 
+          status = case status
+                   when /Accepted/; 'accepted'.yellow
+                   when /Unreviewed/; 'unreviewed'.yellow
+                   when /Review/; 'onreview'.green
+                   when /Needs/; 'needinfo'.yellow
+                   when /Insufficient/; 'insufficient'.red
+                   when /Merged/; 'merged'.blue
+                   when /Duplicate/; 'duplicate'.blue
+                   when /Rejected/; 'rejected'.blue
+                   when /Closed/; 'closed'.blue
+                   else status
+                   end
+          assignedto = issue.xpath('td[@class="assigned_to"]/a').inner_html
+          a = assignedto.split(' ')[0]
+          puts "%8s | %6s | %25s | %s" % [a.nil? ? '-' : a.downcase, id, status, subject] unless subject.nil? || subject.empty?
         end
       end
     end
@@ -120,7 +142,10 @@ module Textgoeshere
     def create_issue_action; "/projects/#{@opts[:project]}/issues/new"; end
     def new_issue_url; "#{@opts[:url]}#{create_issue_action}"; end
     def list_issues_url
-      params = @opts[:query_id] ? "?query_id=#{@opts[:query_id]}" : "" 
+#?set_filter=1&f%5B%5D=status_id&op%5Bstatus_id%5D=*&f%5B%5D=assigned_to_id&op%5Bassigned_to_id%5D=%3D&v%5Bassigned_to_id%5D%5B%5D=me&f%5B%5D=&c%5B%5D=project&c%5B%5D=tracker&c%5B%5D=status&c%5B%5D=priority&c%5B%5D=subject&c%5B%5D=assigned_to&c%5B%5D=fixed_version&c%5B%5D=category&c%5B%5D=support_urls&c%5B%5D=cf_13&c%5B%5D=cf_12&c%5B%5D=cf_11
+      q = @opts[:q]
+      q = @opts[q.to_sym] if q.is_a? String
+      params = q ? "?query_id=#{q}" : "" 
       "#{@opts[:url]}/projects/#{@opts[:project]}/issues#{params}"
     end
       
@@ -163,8 +188,9 @@ command_options = case command
     end
   when "list"
     Trollop::options do
-      opt :number,     "Number of issues to display",   :type => Integer, :default => 5
-      opt :query_id,   "Optional custom query id",      :type => Integer
+      opt :number,     "Number of issues to display",   :type => Integer, :default => 50
+      # opt :q,   "Optional custom query id",      :type => Integer
+      opt :q,   "Optional custom query id",      :type => String
     end
   else
     Trollop::die "Uknown command #{command}"
@@ -173,3 +199,4 @@ end
 opts = global_options.merge(command_options)
 YAML::load_file(opts[:filename]).each_pair { |name, default| opts[name.to_sym] ||= default } if File.exist?(opts[:filename])
 Textgoeshere::Red.new(command, opts)
+
